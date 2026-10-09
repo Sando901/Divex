@@ -1,0 +1,1712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Divex</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fontsource-inter@4.5.11/index.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { 'sans': ['Inter', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        primary: {
+                            50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc',
+                            400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca',
+                            800: '#3730a3', 900: '#312e81', 950: '#1e1b4b',
+                        },
+                        buy: { light: '#ecfdf5', DEFAULT: '#10b981', dark: '#059669' },
+                        sell: { light: '#fff7ed', DEFAULT: '#f59e0b', dark: '#d97706' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+        html, body { font-family: 'Inter', system-ui, sans-serif; overscroll-behavior: none; background: #f8fafc; }
+        .screen { display: none; animation: fadeIn 0.25s ease-out; }
+        .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideDown { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(100%); } }
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; backdrop-filter: blur(4px); }
+        .modal-overlay.active { display: flex; align-items: flex-end; justify-content: center; animation: fadeIn 0.2s ease-out; }
+        .modal-content { animation: slideUp 0.3s ease-out; width: 100%; max-height: 92vh; overflow-y: auto; }
+        .modal-overlay.closing .modal-content { animation: slideDown 0.25s ease-in forwards; }
+        .btn-primary { transition: all 0.15s ease; }
+        .btn-primary:active { transform: scale(0.97); }
+        .operation-card { transition: all 0.2s ease; }
+        .operation-card:active { transform: scale(0.98); }
+        .toast { animation: toastIn 0.3s ease-out, toastOut 0.3s ease-in 2.5s forwards; }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-20px); } }
+        .nav-item { transition: all 0.2s ease; }
+        .nav-item.active { color: #4f46e5; }
+        .nav-item.active .nav-dot { opacity: 1; transform: scaleX(1); }
+        .nav-dot { opacity: 0; transform: scaleX(0); transition: all 0.2s ease; }
+        input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .stat-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; }
+        .glass-header { background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+        @media (min-width: 768px) {
+            .app-container { max-width: 430px; margin: 0 auto; box-shadow: 0 0 60px rgba(0,0,0,0.08); min-height: 100vh; position: relative; }
+        }
+        .date-item { transition: all 0.15s ease; }
+        .date-item:active { background: #f1f5f9; }
+        .rate-input { font-variant-numeric: tabular-nums; }
+        .bill-type-btn { transition: all 0.15s ease; }
+        .bill-type-btn.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+
+        /* Currency selector large buttons */
+        .currency-selector-btn {
+            transition: all 0.2s ease;
+            min-height: 72px;
+        }
+        .currency-selector-btn.active {
+            background: #4f46e5;
+            color: white;
+            box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+            border-color: #4f46e5;
+        }
+        .currency-selector-btn:not(.active) {
+            background: white;
+            color: #475569;
+            border-color: #e2e8f0;
+        }
+        .currency-selector-btn:not(.active):active {
+            background: #f8fafc;
+            transform: scale(0.98);
+        }
+        .currency-selector-btn .flag {
+            font-size: 28px;
+            line-height: 1;
+        }
+        .currency-selector-btn.active .flag {
+            filter: brightness(0) invert(1);
+        }
+        .currency-selector-btn .code {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        /* Rate view tabs */
+        .rate-view-tab {
+            transition: all 0.2s ease;
+        }
+        .rate-view-tab.active {
+            background: #1e1b4b;
+            color: white;
+        }
+        .rate-view-tab:not(.active) {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <div class="app-container bg-slate-50 min-h-screen pb-20">
+        
+        <!-- HEADER -->
+        <header class="glass-header sticky top-0 z-50 border-b border-slate-200/60">
+            <div class="px-5 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-xl font-bold text-primary-900 tracking-tight">Div<span class="text-primary-500">ex</span></h1>
+                        <p id="headerDate" class="text-xs text-slate-500 mt-0.5 font-medium"></p>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- DASHBOARD -->
+        <div id="screenDashboard" class="screen active">
+            <!-- Rates Card -->
+            <div class="px-5 pt-4">
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-lg bg-primary-50 flex items-center justify-center">
+                                <i class="fas fa-coins text-primary-500 text-xs"></i>
+                            </div>
+                            <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Tasas de Cambio</span>
+                        </div>
+                        <button onclick="openRatesConfig()" class="text-xs font-semibold text-primary-600 flex items-center gap-1">
+                            <i class="fas fa-pen text-[9px]"></i> Editar
+                        </button>
+                    </div>
+
+                    <!-- Rate View Selector (USD / EUR / Bss) -->
+                    <div class="px-4 py-3 border-b border-slate-100">
+                        <div class="flex gap-2">
+                            <button onclick="selectRateView('USD')" id="rateViewUSD" class="rate-view-tab active flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5">
+                                <span class="text-sm">🇺🇸</span> USD
+                            </button>
+                            <button onclick="selectRateView('EUR')" id="rateViewEUR" class="rate-view-tab flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5">
+                                <span class="text-sm">🇪🇺</span> EUR
+                            </button>
+                            <button onclick="selectRateView('VES')" id="rateViewVES" class="rate-view-tab flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5">
+                                <span class="text-sm">🇻🇪</span> Bss
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Rate Display Content -->
+                    <div id="ratesDisplayContent" class="p-4">
+                        <!-- Content injected by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Currency Tabs -->
+            <div class="px-5 pt-4 pb-2">
+                <div class="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2" id="currencyTabs"></div>
+            </div>
+
+            <!-- Summary -->
+            <div class="px-5 py-2 space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="stat-card">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-7 h-7 rounded-lg bg-buy-light flex items-center justify-center">
+                                <i class="fas fa-arrow-down text-buy text-[10px]"></i>
+                            </div>
+                            <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Compras</span>
+                        </div>
+                        <p id="dashBuyOps" class="text-xl font-bold text-slate-900">0</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">operaciones</p>
+                        <div class="mt-2 pt-2 border-t border-slate-100">
+                            <p id="dashBuyPesos" class="text-xs font-semibold text-slate-700">$0</p>
+                            <p id="dashBuyDivisa" class="text-[10px] text-slate-400 mt-0.5">0 USD</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-7 h-7 rounded-lg bg-sell-light flex items-center justify-center">
+                                <i class="fas fa-arrow-up text-sell text-[10px]"></i>
+                            </div>
+                            <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Ventas</span>
+                        </div>
+                        <p id="dashSellOps" class="text-xl font-bold text-slate-900">0</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">operaciones</p>
+                        <div class="mt-2 pt-2 border-t border-slate-100">
+                            <p id="dashSellPesos" class="text-xs font-semibold text-slate-700">$0</p>
+                            <p id="dashSellDivisa" class="text-[10px] text-slate-400 mt-0.5">0 USD</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="px-5 py-4 space-y-3">
+                <button onclick="openRegister('compra')" class="btn-primary w-full py-4 rounded-2xl bg-buy text-white font-bold text-base flex items-center justify-center gap-3 shadow-lg shadow-buy/20">
+                    <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                        <i class="fas fa-plus text-lg"></i>
+                    </div>
+                    REGISTRAR COMPRA
+                </button>
+                <button onclick="openRegister('venta')" class="btn-primary w-full py-4 rounded-2xl bg-sell text-white font-bold text-base flex items-center justify-center gap-3 shadow-lg shadow-sell/20">
+                    <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                        <i class="fas fa-plus text-lg"></i>
+                    </div>
+                    REGISTRAR VENTA
+                </button>
+            </div>
+        </div>
+
+        <!-- OPERATIONS -->
+        <div id="screenOperations" class="screen">
+            <div class="px-5 pt-4 pb-2">
+                <div class="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2" id="opsCurrencyTabs"></div>
+            </div>
+            <div class="px-5 py-2">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-lg font-bold text-slate-900">Operaciones del Día</h2>
+                    <span id="opsCount" class="text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">0</span>
+                </div>
+            </div>
+            <div id="operationsList" class="px-5 pb-6 space-y-3"></div>
+            <div id="emptyOperations" class="hidden px-5 py-16 text-center">
+                <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-receipt text-slate-300 text-2xl"></i>
+                </div>
+                <p class="text-slate-400 font-medium">No hay operaciones registradas</p>
+                <p class="text-slate-300 text-sm mt-1">para esta divisa hoy</p>
+            </div>
+        </div>
+
+        <!-- ANALYTICS -->
+        <div id="screenAnalytics" class="screen">
+            <div class="px-5 pt-4 pb-2">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-lg font-bold text-slate-900">Analíticas</h2>
+                    <button onclick="showScreen('history')" class="text-xs font-semibold text-primary-600 flex items-center gap-1">
+                        Ver historial <i class="fas fa-arrow-right text-[9px]"></i>
+                    </button>
+                </div>
+                <p class="text-xs text-slate-400">Resumen del día por divisa</p>
+            </div>
+            <div class="px-5 pt-3 pb-2">
+                <div class="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2" id="analyticsCurrencyTabs"></div>
+            </div>
+            <div id="analyticsContent" class="px-5 pb-6 space-y-3"></div>
+        </div>
+
+        <!-- DEBTS -->
+        <div id="screenDebts" class="screen">
+            <div class="px-5 pt-4 pb-2">
+                <h2 class="text-lg font-bold text-slate-900">Deudas de Bolívar</h2>
+                <p class="text-xs text-slate-400 mt-1">Gestiona las deudas pendientes de Bss</p>
+            </div>
+            <div class="px-5 pt-3">
+                <div class="flex gap-2 mb-4">
+                    <button onclick="setDebtFilter('pending')" id="debtFilterPending" class="flex-1 py-2.5 rounded-xl bg-primary-600 text-white text-xs font-bold">
+                        Pendientes
+                    </button>
+                    <button onclick="setDebtFilter('paid')" id="debtFilterPaid" class="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold">
+                        Pagadas
+                    </button>
+                </div>
+            </div>
+            <div id="debtsList" class="px-5 pb-6 space-y-3"></div>
+            <div id="emptyDebts" class="hidden px-5 py-16 text-center">
+                <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-hand-holding-dollar text-slate-300 text-2xl"></i>
+                </div>
+                <p id="emptyDebtsText" class="text-slate-400 font-medium">No hay deudas pendientes</p>
+            </div>
+        </div>
+
+        <!-- HISTORY -->
+        <div id="screenHistory" class="screen">
+            <div class="px-5 pt-4">
+                <div class="flex items-center justify-between mb-4">
+                    <button onclick="historyPrevMonth()" class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
+                        <i class="fas fa-chevron-left text-sm"></i>
+                    </button>
+                    <h2 id="historyMonthTitle" class="text-lg font-bold text-slate-900 uppercase"></h2>
+                    <button onclick="historyNextMonth()" class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
+                        <i class="fas fa-chevron-right text-sm"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="historyDates" class="px-5 pb-6 space-y-2"></div>
+        </div>
+
+        <!-- DAY DETAIL -->
+        <div id="screenDayDetail" class="screen">
+            <div class="px-5 pt-4">
+                <button onclick="showScreen('history')" class="flex items-center gap-2 text-primary-600 font-medium text-sm mb-4">
+                    <i class="fas fa-arrow-left text-xs"></i> Volver al historial
+                </button>
+                <h2 id="dayDetailTitle" class="text-lg font-bold text-slate-900 mb-4"></h2>
+            </div>
+            <div class="px-5 pb-2">
+                <div class="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2" id="dayCurrencyTabs"></div>
+            </div>
+            <div id="dayDetailContent" class="px-5 pb-6 space-y-3"></div>
+        </div>
+
+        <!-- REGISTER MODAL -->
+        <div id="modalRegister" class="modal-overlay" onclick="closeModalOutside(event, 'modalRegister')">
+            <div class="modal-content bg-white rounded-t-3xl">
+                <div class="p-5">
+                    <div class="flex justify-center mb-4"><div class="w-10 h-1 bg-slate-200 rounded-full"></div></div>
+                    <div class="flex items-center justify-between mb-5">
+                        <h2 id="registerTitle" class="text-xl font-bold text-slate-900">REGISTRAR COMPRA</h2>
+                        <button onclick="closeModal('modalRegister')" class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                            <i class="fas fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <!-- Step 1: Currency -->
+                    <div class="mb-4">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Divisa</label>
+                        <div class="grid grid-cols-3 gap-2" id="registerCurrencyGrid"></div>
+                    </div>
+
+                    <!-- Step 2: Bill type (USD/EUR only) -->
+                    <div id="billTypeSection" class="mb-4">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Tipo de Billete</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="selectBillType('100')" id="btnBill100" class="bill-type-btn active py-3.5 rounded-xl border-2 border-primary-500 bg-primary-50 text-primary-700 font-bold text-sm flex items-center justify-center gap-2">
+                                <i class="fas fa-money-bill-wave text-xs"></i> Billete 100
+                            </button>
+                            <button onclick="selectBillType('sencillo')" id="btnBillSencillo" class="bill-type-btn py-3.5 rounded-xl border-2 border-slate-200 bg-white text-slate-600 font-bold text-sm flex items-center justify-center gap-2">
+                                <i class="fas fa-coins text-xs"></i> Sencillo
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Rate display -->
+                    <div class="mb-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Tasa Aplicada</p>
+                                <p id="registerRateDisplay" class="text-lg font-bold text-slate-900 mt-0.5">$0.000</p>
+                            </div>
+                            <button onclick="toggleRateEdit()" id="rateEditToggle" class="text-xs font-semibold text-primary-600 flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-primary-50">
+                                <i class="fas fa-pen text-[9px]"></i> Cambiar
+                            </button>
+                        </div>
+                        <div id="rateEditField" class="hidden mt-3 pt-3 border-t border-slate-200">
+                            <div class="relative">
+                                <input type="number" id="registerRateManual" inputmode="decimal" step="0.001" placeholder="Tasa manual"
+                                    class="rate-input w-full py-2.5 px-3 pr-10 rounded-lg border-2 border-primary-300 bg-white text-sm font-bold text-slate-900 text-right focus:border-primary-500 focus:outline-none"
+                                    oninput="calculateEquivalent()">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-medium text-slate-400">CLP</span>
+                            </div>
+                            <button onclick="resetRateToDefault()" class="mt-2 text-[11px] text-slate-500 font-medium">
+                                <i class="fas fa-rotate-left text-[9px]"></i> Restaurar tasa configurada
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Amount -->
+                    <div class="mb-4">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Monto en Pesos</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400">$</span>
+                            <input type="number" id="registerAmount" inputmode="numeric" placeholder="0"
+                                class="w-full py-3.5 pl-9 pr-4 rounded-xl border-2 border-slate-200 text-lg font-bold text-slate-900 text-right focus:border-primary-500 focus:outline-none focus:ring-3 focus:ring-primary-100 transition-all"
+                                oninput="calculateEquivalent()">
+                        </div>
+                    </div>
+
+                    <!-- Equivalent -->
+                    <div class="mb-4 p-4 rounded-xl bg-primary-50 border border-primary-100">
+                        <p class="text-[10px] font-semibold text-primary-500 uppercase tracking-wide mb-1">Equivalente en Divisa</p>
+                        <p id="registerEquivalent" class="text-2xl font-bold text-primary-800">0.00 <span id="registerEquivCurrency">USD</span></p>
+                    </div>
+
+                    <!-- Observation (VES only) -->
+                    <div id="observationSection" class="hidden mb-5">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Observación</label>
+                        <input type="text" id="registerObservation" placeholder="Ej: Debe William, Pago pendiente..."
+                            class="w-full py-3 px-4 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-3 focus:ring-primary-100 transition-all">
+                    </div>
+
+                    <button id="registerSubmitBtn" onclick="submitOperation()" class="btn-primary w-full py-4 rounded-2xl bg-buy text-white font-bold text-base shadow-lg shadow-buy/20">
+                        REGISTRAR COMPRA
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RATES CONFIG MODAL -->
+        <div id="modalRates" class="modal-overlay" onclick="closeModalOutside(event, 'modalRates')">
+            <div class="modal-content bg-white rounded-t-3xl">
+                <div class="p-5">
+                    <div class="flex justify-center mb-4"><div class="w-10 h-1 bg-slate-200 rounded-full"></div></div>
+                    <div class="flex items-center justify-between mb-5">
+                        <h2 class="text-xl font-bold text-slate-900">Configurar Tasas</h2>
+                        <button onclick="closeModal('modalRates')" class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                            <i class="fas fa-xmark"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-5">Estas tasas se aplicarán automáticamente al registrar operaciones.</p>
+
+                    <!-- USD -->
+                    <div class="mb-5">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">🇺🇸</span>
+                            <span class="text-sm font-bold text-slate-900">USD</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[10px] font-semibold text-slate-500 uppercase mb-1.5 block">Billete 100</label>
+                                <div class="relative">
+                                    <input type="number" id="rateUSD100Input" inputmode="decimal" step="0.001"
+                                        class="rate-input w-full py-2.5 px-3 pr-9 rounded-lg border-2 border-slate-200 text-sm font-bold text-slate-900 text-right focus:border-primary-500 focus:outline-none">
+                                    <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">CLP</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-semibold text-slate-500 uppercase mb-1.5 block">Sencillo</label>
+                                <div class="relative">
+                                    <input type="number" id="rateUSDSencInput" inputmode="decimal" step="0.001"
+                                        class="rate-input w-full py-2.5 px-3 pr-9 rounded-lg border-2 border-slate-200 text-sm font-bold text-slate-900 text-right focus:border-primary-500 focus:outline-none">
+                                    <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">CLP</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- EUR -->
+                    <div class="mb-5">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">🇪🇺</span>
+                            <span class="text-sm font-bold text-slate-900">EUR</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[10px] font-semibold text-slate-500 uppercase mb-1.5 block">Billete 100</label>
+                                <div class="relative">
+                                    <input type="number" id="rateEUR100Input" inputmode="decimal" step="0.001"
+                                        class="rate-input w-full py-2.5 px-3 pr-9 rounded-lg border-2 border-slate-200 text-sm font-bold text-slate-900 text-right focus:border-primary-500 focus:outline-none">
+                                    <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">CLP</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-semibold text-slate-500 uppercase mb-1.5 block">Sencillo</label>
+                                <div class="relative">
+                                    <input type="number" id="rateEURSencInput" inputmode="decimal" step="0.001"
+                                        class="rate-input w-full py-2.5 px-3 pr-9 rounded-lg border-2 border-slate-200 text-sm font-bold text-slate-900 text-right focus:border-primary-500 focus:outline-none">
+                                    <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">CLP</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VES -->
+                    <div class="mb-6">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">🇻🇪</span>
+                            <span class="text-sm font-bold text-slate-900">Bss</span>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-semibold text-slate-500 uppercase mb-1.5 block">Tasa (valor 1 = $2.500)</label>
+                            <div class="relative">
+                                <input type="number" id="rateVESInput" inputmode="decimal" step="0.001"
+                                    class="rate-input w-full py-2.5 px-3 pr-9 rounded-lg border-2 border-slate-200 text-sm font-bold text-slate-900 text-right focus:border-primary-500 focus:outline-none">
+                                <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">CLP</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="saveRates()" class="btn-primary w-full py-4 rounded-2xl bg-primary-600 text-white font-bold text-base shadow-lg shadow-primary-600/20">
+                        GUARDAR TASAS
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- EDIT MODAL -->
+        <div id="modalEdit" class="modal-overlay" onclick="closeModalOutside(event, 'modalEdit')">
+            <div class="modal-content bg-white rounded-t-3xl">
+                <div class="p-5">
+                    <div class="flex justify-center mb-4"><div class="w-10 h-1 bg-slate-200 rounded-full"></div></div>
+                    <div class="flex items-center justify-between mb-5">
+                        <h2 class="text-xl font-bold text-slate-900">EDITAR OPERACIÓN</h2>
+                        <button onclick="closeModal('modalEdit')" class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                            <i class="fas fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Divisa</label>
+                        <div id="editCurrencyDisplay" class="w-full py-3 px-4 rounded-xl bg-slate-50 border-2 border-slate-200 flex items-center gap-3">
+                            <span id="editCurrencyFlag" class="text-xl">🇺🇸</span>
+                            <div>
+                                <span id="editCurrencyCode" class="font-bold text-slate-900">USD</span>
+                                <span id="editBillType" class="text-slate-400 text-xs ml-2">Billete 100</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Tipo</label>
+                        <div id="editTypeLabel" class="w-full py-3 px-4 rounded-xl bg-buy-light border-2 border-buy/20 font-bold text-buy-dark text-center text-sm">COMPRA</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Tasa</label>
+                        <div class="relative">
+                            <input type="number" id="editPrice" inputmode="decimal" step="0.001"
+                                class="rate-input w-full py-3 px-4 pr-10 rounded-xl border-2 border-slate-200 text-base font-bold text-slate-900 text-right focus:border-primary-500 focus:outline-none"
+                                oninput="calculateEditEquivalent()">
+                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">CLP</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Monto en Pesos</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-base font-bold text-slate-400">$</span>
+                            <input type="number" id="editAmount" inputmode="numeric"
+                                class="w-full py-3 pl-8 pr-4 rounded-xl border-2 border-slate-200 text-base font-bold text-slate-900 text-right focus:border-primary-500 focus:outline-none"
+                                oninput="calculateEditEquivalent()">
+                        </div>
+                    </div>
+
+                    <div class="mb-4 p-3 rounded-xl bg-primary-50 border border-primary-100">
+                        <p class="text-[10px] font-semibold text-primary-500 uppercase tracking-wide mb-1">Equivalente</p>
+                        <p id="editEquivalent" class="text-xl font-bold text-primary-800">0.00 <span id="editEquivCurrency">USD</span></p>
+                    </div>
+
+                    <div id="editObservationSection" class="hidden mb-5">
+                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Observación</label>
+                        <input type="text" id="editObservation"
+                            class="w-full py-3 px-4 rounded-xl border-2 border-slate-200 text-sm text-slate-900 focus:border-primary-500 focus:outline-none">
+                    </div>
+
+                    <button onclick="saveEdit()" class="btn-primary w-full py-4 rounded-2xl bg-primary-600 text-white font-bold text-base shadow-lg shadow-primary-600/20">
+                        GUARDAR CAMBIOS
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DELETE MODAL -->
+        <div id="modalDelete" class="modal-overlay" onclick="closeModalOutside(event, 'modalDelete')">
+            <div class="modal-content bg-white rounded-t-3xl">
+                <div class="p-5">
+                    <div class="flex justify-center mb-4"><div class="w-10 h-1 bg-slate-200 rounded-full"></div></div>
+                    <div class="text-center mb-6">
+                        <div class="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-trash-alt text-red-500 text-xl"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-slate-900 mb-2">¿Eliminar operación?</h2>
+                        <p class="text-sm text-slate-500">Esta acción no se puede deshacer.</p>
+                    </div>
+                    <div class="space-y-3">
+                        <button onclick="confirmDelete()" class="btn-primary w-full py-4 rounded-2xl bg-red-500 text-white font-bold text-base">SÍ, ELIMINAR</button>
+                        <button onclick="closeModal('modalDelete')" class="btn-primary w-full py-4 rounded-2xl bg-slate-100 text-slate-700 font-bold text-base">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DEBT ACTION MODAL -->
+        <div id="modalDebtAction" class="modal-overlay" onclick="closeModalOutside(event, 'modalDebtAction')">
+            <div class="modal-content bg-white rounded-t-3xl">
+                <div class="p-5">
+                    <div class="flex justify-center mb-4"><div class="w-10 h-1 bg-slate-200 rounded-full"></div></div>
+                    <div class="flex items-center justify-between mb-5">
+                        <h2 class="text-xl font-bold text-slate-900">Acción sobre deuda</h2>
+                        <button onclick="closeModal('modalDebtAction')" class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                            <i class="fas fa-xmark"></i>
+                        </button>
+                    </div>
+                    <div id="debtActionInfo" class="mb-5 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <p id="debtActionName" class="font-bold text-slate-900">—</p>
+                        <p id="debtActionAmount" class="text-sm text-slate-500 mt-1">—</p>
+                    </div>
+                    <div class="space-y-2">
+                        <button id="debtActionToggleBtn" onclick="toggleDebtPaid()" class="btn-primary w-full py-4 rounded-2xl bg-primary-600 text-white font-bold text-base">
+                            Marcar como pagada
+                        </button>
+                        <button onclick="editDebt()" class="btn-primary w-full py-4 rounded-2xl bg-white border-2 border-slate-200 text-slate-700 font-bold text-base">
+                            Editar observación
+                        </button>
+                        <button onclick="deleteDebt()" class="btn-primary w-full py-4 rounded-2xl bg-white border-2 border-red-200 text-red-500 font-bold text-base">
+                            Eliminar deuda
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MORE MENU -->
+        <div id="modalMore" class="modal-overlay" onclick="closeModalOutside(event, 'modalMore')">
+            <div class="modal-content bg-white rounded-t-3xl">
+                <div class="p-5">
+                    <div class="flex justify-center mb-4"><div class="w-10 h-1 bg-slate-200 rounded-full"></div></div>
+                    <div class="flex items-center justify-between mb-5">
+                        <h2 class="text-xl font-bold text-slate-900">Más opciones</h2>
+                        <button onclick="closeModal('modalMore')" class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                            <i class="fas fa-xmark"></i>
+                        </button>
+                    </div>
+                    <div class="space-y-2">
+                        <button onclick="closeModal('modalMore'); exportExcel()" class="btn-primary w-full py-4 px-5 rounded-2xl bg-white border border-slate-200 flex items-center gap-4 text-left hover:bg-slate-50">
+                            <div class="w-11 h-11 rounded-xl bg-green-50 flex items-center justify-center">
+                                <i class="fas fa-file-excel text-green-600 text-lg"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-bold text-slate-900">Exportar Excel</p>
+                                <p class="text-xs text-slate-400">Operaciones del día</p>
+                            </div>
+                        </button>
+                        <button onclick="closeModal('modalMore'); showScreen('debts')" class="btn-primary w-full py-4 px-5 rounded-2xl bg-white border border-slate-200 flex items-center gap-4 text-left hover:bg-slate-50">
+                            <div class="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
+                                <i class="fas fa-hand-holding-dollar text-amber-600 text-lg"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-bold text-slate-900">Deudas de Bolívar</p>
+                                <p class="text-xs text-slate-400">Gestionar deudas Bss</p>
+                            </div>
+                        </button>
+                        <button onclick="closeModal('modalMore'); openRatesConfig()" class="btn-primary w-full py-4 px-5 rounded-2xl bg-white border border-slate-200 flex items-center gap-4 text-left hover:bg-slate-50">
+                            <div class="w-11 h-11 rounded-xl bg-primary-50 flex items-center justify-center">
+                                <i class="fas fa-sliders text-primary-600 text-lg"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-bold text-slate-900">Configurar Tasas</p>
+                                <p class="text-xs text-slate-400">Actualizar tasas de cambio</p>
+                            </div>
+                        </button>
+                        <button onclick="closeModal('modalMore'); showScreen('history')" class="btn-primary w-full py-4 px-5 rounded-2xl bg-white border border-slate-200 flex items-center gap-4 text-left hover:bg-slate-50">
+                            <div class="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center">
+                                <i class="fas fa-clock-rotate-left text-slate-600 text-lg"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-bold text-slate-900">Historial</p>
+                                <p class="text-xs text-slate-400">Consultar días anteriores</p>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM NAV -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50">
+            <div class="max-w-[430px] mx-auto">
+                <div class="flex items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+                    <button onclick="showScreen('dashboard')" class="nav-item active flex flex-col items-center gap-0.5 px-4 py-1.5" data-screen="dashboard">
+                        <i class="fas fa-house text-lg"></i>
+                        <span class="text-[10px] font-semibold">Inicio</span>
+                        <div class="nav-dot w-1 h-1 rounded-full bg-primary-500 mt-0.5"></div>
+                    </button>
+                    <button onclick="showScreen('operations')" class="nav-item flex flex-col items-center gap-0.5 px-4 py-1.5 text-slate-400" data-screen="operations">
+                        <i class="fas fa-list-ul text-lg"></i>
+                        <span class="text-[10px] font-semibold">Operaciones</span>
+                        <div class="nav-dot w-1 h-1 rounded-full bg-primary-500 mt-0.5"></div>
+                    </button>
+                    <button onclick="showScreen('analytics')" class="nav-item flex flex-col items-center gap-0.5 px-4 py-1.5 text-slate-400" data-screen="analytics">
+                        <i class="fas fa-chart-line text-lg"></i>
+                        <span class="text-[10px] font-semibold">Analíticas</span>
+                        <div class="nav-dot w-1 h-1 rounded-full bg-primary-500 mt-0.5"></div>
+                    </button>
+                    <button onclick="showMoreMenu()" class="nav-item flex flex-col items-center gap-0.5 px-4 py-1.5 text-slate-400" data-screen="more">
+                        <i class="fas fa-ellipsis text-lg"></i>
+                        <span class="text-[10px] font-semibold">Más</span>
+                        <div class="nav-dot w-1 h-1 rounded-full bg-primary-500 mt-0.5"></div>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <div id="toastContainer" class="fixed top-20 left-0 right-0 z-[200] flex flex-col items-center pointer-events-none"></div>
+    </div>
+
+    <script>
+        // ==================== DATA ====================
+        const CURRENCIES = [
+            { code: 'USD', name: 'USD', flag: '🇺🇸' },
+            { code: 'EUR', name: 'EUR', flag: '🇪🇺' },
+            { code: 'VES', name: 'Bss', flag: '🇻🇪' }
+        ];
+
+        const MONTHS = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+        const MONTHS_SHORT = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+        const DAYS_SHORT = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+
+        const DEFAULT_RATES = {
+            USD: { '100': 3594, sencillo: 3580 },
+            EUR: { '100': 4200, sencillo: 4150 },
+            VES: { rate: 2500 }
+        };
+
+        let operations = [];
+        let rates = {};
+        let selectedCurrency = 'USD';
+        let currentScreen = 'dashboard';
+        let registerType = 'compra';
+        let registerCurrency = 'USD';
+        let registerBillType = '100';
+        let registerRateManual = null;
+        let editingOpId = null;
+        let deletingOpId = null;
+        let historyYear = new Date().getFullYear();
+        let historyMonth = new Date().getMonth();
+        let selectedHistoryDate = null;
+        let dayDetailCurrency = 'USD';
+        let debtFilter = 'pending';
+        let activeDebtId = null;
+        let rateViewCurrency = 'USD';
+
+        // ==================== STORAGE ====================
+        // Claves de almacenamiento. Las claves "cambio360_*" eran las del nombre anterior:
+        // se leen solo como respaldo para no perder los datos ya guardados en el navegador.
+        const STORAGE_OPS = 'divex_ops';
+        const STORAGE_RATES = 'divex_rates';
+        const LEGACY_OPS = 'cambio360_ops';
+        const LEGACY_RATES = 'cambio360_rates';
+
+        function loadData() {
+            try {
+                const savedOps = localStorage.getItem(STORAGE_OPS) ?? localStorage.getItem(LEGACY_OPS);
+                const savedRates = localStorage.getItem(STORAGE_RATES) ?? localStorage.getItem(LEGACY_RATES);
+                operations = savedOps ? JSON.parse(savedOps) : [];
+                rates = savedRates ? JSON.parse(savedRates) : JSON.parse(JSON.stringify(DEFAULT_RATES));
+            } catch(e) {
+                operations = [];
+                rates = JSON.parse(JSON.stringify(DEFAULT_RATES));
+            }
+            if (operations.length === 0) loadDemoData();
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_OPS, JSON.stringify(operations));
+            localStorage.setItem(STORAGE_RATES, JSON.stringify(rates));
+        }
+
+        function loadDemoData() {
+            const today = new Date();
+            const todayStr = formatDateKey(today);
+            const demoOps = [
+                { divisa: 'USD', tipoBillete: '100', tipo: 'compra', montoPesos: 728394, observacion: '' },
+                { divisa: 'USD', tipoBillete: '100', tipo: 'compra', montoPesos: 500000, observacion: '' },
+                { divisa: 'USD', tipoBillete: 'sencillo', tipo: 'compra', montoPesos: 180000, observacion: '' },
+                { divisa: 'USD', tipoBillete: '100', tipo: 'venta', montoPesos: 380000, observacion: '' },
+                { divisa: 'USD', tipoBillete: 'sencillo', tipo: 'venta', montoPesos: 95000, observacion: '' },
+                { divisa: 'EUR', tipoBillete: '100', tipo: 'compra', montoPesos: 420000, observacion: '' },
+                { divisa: 'EUR', tipoBillete: '100', tipo: 'venta', montoPesos: 210000, observacion: '' },
+                { divisa: 'VES', tipoBillete: null, tipo: 'compra', montoPesos: 250000, observacion: 'Debe William' },
+                { divisa: 'VES', tipoBillete: null, tipo: 'compra', montoPesos: 180000, observacion: 'Debe Carlos' },
+            ];
+            demoOps.forEach((op, i) => {
+                const rate = op.divisa === 'VES' ? rates.VES.rate : rates[op.divisa][op.tipoBillete];
+                const hour = 8 + Math.floor(i * 0.8);
+                const min = 10 + (i * 13) % 50;
+                operations.push({
+                    id: (Date.now() + i).toString(),
+                    fecha: todayStr,
+                    hora: `${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`,
+                    divisa: op.divisa,
+                    tipoBillete: op.tipoBillete,
+                    tipo: op.tipo,
+                    precio: rate,
+                    montoPesos: op.montoPesos,
+                    equivalenteDivisa: calcularEquivalente(op.montoPesos, rate),
+                    observacion: op.observacion,
+                    pagada: false
+                });
+            });
+            saveData();
+        }
+
+        // ==================== UTILS ====================
+        function formatDateKey(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+        function formatPesos(n) { return '$' + Math.round(n).toLocaleString('es-CL'); }
+        function formatPrice(p) { return '$' + p.toFixed(3).replace('.', ','); }
+        function formatDivisa(n, code) { return n.toLocaleString('es-CL', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ' + code; }
+        function getCurrency(c) { return CURRENCIES.find(x => x.code === c); }
+        function getTodayStr() { return formatDateKey(new Date()); }
+
+        function updateHeaderDate() {
+            const now = new Date();
+            document.getElementById('headerDate').textContent = `${DAYS_SHORT[now.getDay()]} ${now.getDate()} ${MONTHS_SHORT[now.getMonth()]} ${now.getFullYear()}`;
+        }
+
+        // Equivalente en divisa = monto en pesos / precio, redondeado a 2 decimales.
+        // Única fuente de esta fórmula (RF-02); el llamador valida que precio > 0.
+        function calcularEquivalente(montoPesos, precio) {
+            return parseFloat((montoPesos / precio).toFixed(2));
+        }
+
+        function getRate(divisa, billType) {
+            if (divisa === 'VES') return rates.VES.rate;
+            return rates[divisa][billType] || 0;
+        }
+
+        // ==================== NAVIGATION ====================
+        function showScreen(screen) {
+            currentScreen = screen;
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            const map = { dashboard:'screenDashboard', operations:'screenOperations', analytics:'screenAnalytics', debts:'screenDebts', history:'screenHistory', dayDetail:'screenDayDetail' };
+            document.getElementById(map[screen]).classList.add('active');
+
+            document.querySelectorAll('.nav-item').forEach(n => { n.classList.remove('active'); n.classList.add('text-slate-400'); });
+            const navScreen = screen === 'dayDetail' ? 'history' : screen;
+            const activeNav = document.querySelector(`.nav-item[data-screen="${navScreen}"]`);
+            if (activeNav) { activeNav.classList.add('active'); activeNav.classList.remove('text-slate-400'); }
+
+            if (screen === 'dashboard') { renderCurrencyTabs(); updateDashboard(); updateRatesDisplay(); }
+            if (screen === 'operations') { renderOpsCurrencyTabs(); renderOperations(); }
+            if (screen === 'analytics') { renderAnalyticsCurrencyTabs(); renderAnalytics(); }
+            if (screen === 'debts') renderDebts();
+            if (screen === 'history') renderHistory();
+            if (screen === 'dayDetail') renderDayDetail();
+            window.scrollTo(0, 0);
+        }
+
+        // ==================== RATES DISPLAY ====================
+        function selectRateView(code) {
+            rateViewCurrency = code;
+            document.getElementById('rateViewUSD').className = rateViewCurrency === 'USD' ? 'rate-view-tab active flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5' : 'rate-view-tab flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5';
+            document.getElementById('rateViewEUR').className = rateViewCurrency === 'EUR' ? 'rate-view-tab active flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5' : 'rate-view-tab flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5';
+            document.getElementById('rateViewVES').className = rateViewCurrency === 'VES' ? 'rate-view-tab active flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5' : 'rate-view-tab flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5';
+            updateRatesDisplay();
+        }
+
+        function updateRatesDisplay() {
+            const container = document.getElementById('ratesDisplayContent');
+            if (rateViewCurrency === 'USD') {
+                container.innerHTML = `
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <div class="flex items-center gap-1.5 mb-1">
+                                <span class="text-sm">🇺🇸</span>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">USD</span>
+                                <span class="text-[10px] text-slate-400 ml-auto">Billete 100</span>
+                            </div>
+                            <p class="text-lg font-bold text-slate-900">${formatPrice(rates.USD['100'])}</p>
+                        </div>
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <div class="flex items-center gap-1.5 mb-1">
+                                <span class="text-sm">🇺🇸</span>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">USD</span>
+                                <span class="text-[10px] text-slate-400 ml-auto">Sencillo</span>
+                            </div>
+                            <p class="text-lg font-bold text-slate-900">${formatPrice(rates.USD.sencillo)}</p>
+                        </div>
+                    </div>
+                `;
+            } else if (rateViewCurrency === 'EUR') {
+                container.innerHTML = `
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <div class="flex items-center gap-1.5 mb-1">
+                                <span class="text-sm">🇪🇺</span>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">EUR</span>
+                                <span class="text-[10px] text-slate-400 ml-auto">Billete 100</span>
+                            </div>
+                            <p class="text-lg font-bold text-slate-900">${formatPrice(rates.EUR['100'])}</p>
+                        </div>
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <div class="flex items-center gap-1.5 mb-1">
+                                <span class="text-sm">🇪🇺</span>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">EUR</span>
+                                <span class="text-[10px] text-slate-400 ml-auto">Sencillo</span>
+                            </div>
+                            <p class="text-lg font-bold text-slate-900">${formatPrice(rates.EUR.sencillo)}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="text-sm">🇻</span>
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Bss</span>
+                            <span class="text-[10px] text-slate-400 ml-auto">Tasa única</span>
+                        </div>
+                        <p class="text-lg font-bold text-slate-900">${formatPrice(rates.VES.rate)}</p>
+                        <p class="text-[10px] text-slate-400 mt-1">Valor 1 = $2.500</p>
+                    </div>
+                `;
+            }
+        }
+
+        // ==================== CURRENCY TABS ====================
+        function renderCurrencyTabs() {
+            const container = document.getElementById('currencyTabs');
+            container.innerHTML = CURRENCIES.map(c => `
+                <button onclick="selectCurrency('${c.code}')" class="currency-pill flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap ${selectedCurrency === c.code ? 'active' : 'bg-white border border-slate-200 text-slate-600'}">
+                    <span class="text-sm">${c.flag}</span> ${c.name}
+                </button>
+            `).join('');
+        }
+
+        function renderOpsCurrencyTabs() {
+            const container = document.getElementById('opsCurrencyTabs');
+            container.innerHTML = CURRENCIES.map(c => `
+                <button onclick="selectCurrency('${c.code}')" class="currency-pill flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap ${selectedCurrency === c.code ? 'active' : 'bg-white border border-slate-200 text-slate-600'}">
+                    <span class="text-sm">${c.flag}</span> ${c.name}
+                </button>
+            `).join('');
+        }
+
+        function renderAnalyticsCurrencyTabs() {
+            const container = document.getElementById('analyticsCurrencyTabs');
+            container.innerHTML = CURRENCIES.map(c => `
+                <button onclick="selectCurrency('${c.code}')" class="currency-pill flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap ${selectedCurrency === c.code ? 'active' : 'bg-white border border-slate-200 text-slate-600'}">
+                    <span class="text-sm">${c.flag}</span> ${c.name}
+                </button>
+            `).join('');
+        }
+
+        function selectCurrency(code) {
+            selectedCurrency = code;
+            if (currentScreen === 'dashboard') { renderCurrencyTabs(); updateDashboard(); }
+            if (currentScreen === 'operations') { renderOpsCurrencyTabs(); renderOperations(); }
+            if (currentScreen === 'analytics') { renderAnalyticsCurrencyTabs(); renderAnalytics(); }
+        }
+
+        // ==================== DASHBOARD ====================
+        function updateDashboard() {
+            const todayStr = getTodayStr();
+            const ops = operations.filter(op => op.fecha === todayStr && op.divisa === selectedCurrency);
+            const buys = ops.filter(op => op.tipo === 'compra');
+            const sells = ops.filter(op => op.tipo === 'venta');
+            const tBP = buys.reduce((s,o)=>s+o.montoPesos,0);
+            const tBD = buys.reduce((s,o)=>s+o.equivalenteDivisa,0);
+            const tSP = sells.reduce((s,o)=>s+o.montoPesos,0);
+            const tSD = sells.reduce((s,o)=>s+o.equivalenteDivisa,0);
+            document.getElementById('dashBuyOps').textContent = buys.length;
+            document.getElementById('dashBuyPesos').textContent = formatPesos(tBP);
+            document.getElementById('dashBuyDivisa').textContent = formatDivisa(tBD, selectedCurrency);
+            document.getElementById('dashSellOps').textContent = sells.length;
+            document.getElementById('dashSellPesos').textContent = formatPesos(tSP);
+            document.getElementById('dashSellDivisa').textContent = formatDivisa(tSD, selectedCurrency);
+        }
+
+        // ==================== OPERATIONS ====================
+        function renderOperations() {
+            const todayStr = getTodayStr();
+            const ops = operations.filter(op => op.fecha === todayStr && op.divisa === selectedCurrency).sort((a,b) => b.hora.localeCompare(a.hora));
+            const list = document.getElementById('operationsList');
+            const empty = document.getElementById('emptyOperations');
+            document.getElementById('opsCount').textContent = ops.length;
+            if (ops.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
+            empty.classList.add('hidden');
+            list.innerHTML = ops.map(op => renderOperationCard(op)).join('');
+        }
+
+        function renderOperationCard(op) {
+            const curr = getCurrency(op.divisa);
+            const isBuy = op.tipo === 'compra';
+            let billLabel = '';
+            if (op.divisa === 'VES') billLabel = 'Bss';
+            else billLabel = op.tipoBillete === '100' ? 'Billete 100' : 'Sencillo';
+            return `
+                <div class="operation-card bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm">${curr.flag}</span>
+                                <span class="text-[10px] font-bold px-2 py-1 rounded-lg ${isBuy ? 'bg-buy-light text-buy-dark' : 'bg-sell-light text-sell-dark'}">${isBuy ? 'COMPRA' : 'VENTA'}</span>
+                                <span class="text-[10px] font-medium text-slate-400">${billLabel}</span>
+                            </div>
+                            <span class="text-xs font-medium text-slate-400">${op.hora}</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <p class="text-[10px] font-semibold text-slate-400 uppercase">Tasa</p>
+                                <p class="text-sm font-bold text-slate-900">${formatPrice(op.precio)}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-semibold text-slate-400 uppercase">Monto</p>
+                                <p class="text-sm font-bold text-slate-900">${formatPesos(op.montoPesos)}</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-semibold text-slate-400 uppercase">${op.divisa}</p>
+                                <p class="text-sm font-bold text-primary-700">${op.equivalenteDivisa.toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2})}</p>
+                            </div>
+                        </div>
+                        ${op.observacion ? `<div class="mt-3 pt-3 border-t border-slate-100"><p class="text-xs text-slate-500"><i class="fas fa-comment-dots text-slate-300 mr-1.5"></i>${op.observacion}</p></div>` : ''}
+                    </div>
+                    <div class="flex border-t border-slate-100">
+                        <button onclick="openEdit('${op.id}')" class="flex-1 py-3 text-xs font-semibold text-slate-500 flex items-center justify-center gap-1.5 hover:bg-slate-50">
+                            <i class="fas fa-pen text-[10px]"></i> Editar
+                        </button>
+                        <div class="w-px bg-slate-100"></div>
+                        <button onclick="openDelete('${op.id}')" class="flex-1 py-3 text-xs font-semibold text-red-400 flex items-center justify-center gap-1.5 hover:bg-red-50">
+                            <i class="fas fa-trash-alt text-[10px]"></i> Eliminar
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ==================== REGISTER ====================
+        function openRegister(type) {
+            registerType = type;
+            registerCurrency = selectedCurrency;
+            registerBillType = '100';
+            registerRateManual = null;
+
+            const title = document.getElementById('registerTitle');
+            const btn = document.getElementById('registerSubmitBtn');
+            if (type === 'compra') {
+                title.textContent = 'REGISTRAR COMPRA';
+                btn.textContent = 'REGISTRAR COMPRA';
+                btn.className = 'btn-primary w-full py-4 rounded-2xl bg-buy text-white font-bold text-base shadow-lg shadow-buy/20';
+            } else {
+                title.textContent = 'REGISTRAR VENTA';
+                btn.textContent = 'REGISTRAR VENTA';
+                btn.className = 'btn-primary w-full py-4 rounded-2xl bg-sell text-white font-bold text-base shadow-lg shadow-sell/20';
+            }
+
+            renderRegisterCurrencyGrid();
+            updateRegisterFlow();
+            document.getElementById('registerAmount').value = '';
+            document.getElementById('registerObservation').value = '';
+            document.getElementById('rateEditField').classList.add('hidden');
+            document.getElementById('rateEditToggle').innerHTML = '<i class="fas fa-pen text-[9px]"></i> Cambiar';
+            calculateEquivalent();
+            openModal('modalRegister');
+        }
+
+        function renderRegisterCurrencyGrid() {
+            const grid = document.getElementById('registerCurrencyGrid');
+            grid.innerHTML = CURRENCIES.map(c => `
+                <button onclick="selectRegisterCurrency('${c.code}')" class="currency-selector-btn rounded-2xl border-2 font-bold flex flex-col items-center justify-center gap-1 ${registerCurrency === c.code ? 'active' : ''}">
+                    <span class="flag">${c.flag}</span>
+                    <span class="code">${c.name}</span>
+                </button>
+            `).join('');
+        }
+
+        function selectRegisterCurrency(code) {
+            registerCurrency = code;
+            registerBillType = '100';
+            registerRateManual = null;
+            renderRegisterCurrencyGrid();
+            updateRegisterFlow();
+            calculateEquivalent();
+        }
+
+        function updateRegisterFlow() {
+            const billSection = document.getElementById('billTypeSection');
+            const obsSection = document.getElementById('observationSection');
+            if (registerCurrency === 'VES') {
+                billSection.classList.add('hidden');
+                obsSection.classList.remove('hidden');
+            } else {
+                billSection.classList.remove('hidden');
+                obsSection.classList.add('hidden');
+                updateBillTypeButtons();
+            }
+            updateRateDisplay();
+        }
+
+        function updateBillTypeButtons() {
+            const b100 = document.getElementById('btnBill100');
+            const bSenc = document.getElementById('btnBillSencillo');
+            if (registerBillType === '100') {
+                b100.className = 'bill-type-btn active py-3.5 rounded-xl border-2 border-primary-500 bg-primary-50 text-primary-700 font-bold text-sm flex items-center justify-center gap-2';
+                bSenc.className = 'bill-type-btn py-3.5 rounded-xl border-2 border-slate-200 bg-white text-slate-600 font-bold text-sm flex items-center justify-center gap-2';
+            } else {
+                bSenc.className = 'bill-type-btn active py-3.5 rounded-xl border-2 border-primary-500 bg-primary-50 text-primary-700 font-bold text-sm flex items-center justify-center gap-2';
+                b100.className = 'bill-type-btn py-3.5 rounded-xl border-2 border-slate-200 bg-white text-slate-600 font-bold text-sm flex items-center justify-center gap-2';
+            }
+        }
+
+        function selectBillType(type) {
+            registerBillType = type;
+            registerRateManual = null;
+            document.getElementById('rateEditField').classList.add('hidden');
+            document.getElementById('rateEditToggle').innerHTML = '<i class="fas fa-pen text-[9px]"></i> Cambiar';
+            updateBillTypeButtons();
+            updateRateDisplay();
+            calculateEquivalent();
+        }
+
+        function updateRateDisplay() {
+            const rate = registerRateManual !== null ? registerRateManual : getRate(registerCurrency, registerBillType);
+            document.getElementById('registerRateDisplay').textContent = formatPrice(rate);
+            document.getElementById('registerEquivCurrency').textContent = registerCurrency;
+        }
+
+        function toggleRateEdit() {
+            const field = document.getElementById('rateEditField');
+            const toggle = document.getElementById('rateEditToggle');
+            if (field.classList.contains('hidden')) {
+                field.classList.remove('hidden');
+                const currentRate = registerRateManual !== null ? registerRateManual : getRate(registerCurrency, registerBillType);
+                document.getElementById('registerRateManual').value = currentRate;
+                toggle.innerHTML = '<i class="fas fa-xmark text-[9px]"></i> Cancelar';
+            } else {
+                field.classList.add('hidden');
+                registerRateManual = null;
+                toggle.innerHTML = '<i class="fas fa-pen text-[9px]"></i> Cambiar';
+                updateRateDisplay();
+                calculateEquivalent();
+            }
+        }
+
+        function resetRateToDefault() {
+            registerRateManual = null;
+            document.getElementById('registerRateManual').value = '';
+            document.getElementById('rateEditField').classList.add('hidden');
+            document.getElementById('rateEditToggle').innerHTML = '<i class="fas fa-pen text-[9px]"></i> Cambiar';
+            updateRateDisplay();
+            calculateEquivalent();
+        }
+
+        function calculateEquivalent() {
+            const manualInput = document.getElementById('registerRateManual');
+            if (!document.getElementById('rateEditField').classList.contains('hidden') && manualInput.value) {
+                registerRateManual = parseFloat(manualInput.value);
+                document.getElementById('registerRateDisplay').textContent = formatPrice(registerRateManual);
+            }
+            const rate = registerRateManual !== null ? registerRateManual : getRate(registerCurrency, registerBillType);
+            const amount = parseFloat(document.getElementById('registerAmount').value) || 0;
+            if (rate > 0 && amount > 0) {
+                const equiv = calcularEquivalente(amount, rate);
+                document.getElementById('registerEquivalent').innerHTML = `${parseFloat(equiv).toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2})} <span id="registerEquivCurrency">${registerCurrency}</span>`;
+            } else {
+                document.getElementById('registerEquivalent').innerHTML = `0.00 <span id="registerEquivCurrency">${registerCurrency}</span>`;
+            }
+        }
+
+        function submitOperation() {
+            const amount = parseFloat(document.getElementById('registerAmount').value);
+            const observation = document.getElementById('registerObservation').value.trim();
+            const rate = registerRateManual !== null ? registerRateManual : getRate(registerCurrency, registerBillType);
+
+            if (!amount || amount <= 0) { showToast('Ingresa el monto en pesos', 'warning'); return; }
+            if (!rate || rate <= 0) { showToast('La tasa no es válida', 'warning'); return; }
+
+            const now = new Date();
+            const equiv = calcularEquivalente(amount, rate);
+            const newOp = {
+                id: Date.now().toString(),
+                fecha: getTodayStr(),
+                hora: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
+                divisa: registerCurrency,
+                tipoBillete: registerCurrency === 'VES' ? null : registerBillType,
+                tipo: registerType,
+                precio: rate,
+                montoPesos: amount,
+                equivalenteDivisa: equiv,
+                observacion: registerCurrency === 'VES' ? observation : '',
+                pagada: false
+            };
+            operations.push(newOp);
+            saveData();
+            closeModal('modalRegister');
+            const typeLabel = registerType === 'compra' ? 'Compra' : 'Venta';
+            showToast(`${typeLabel} registrada: ${formatDivisa(equiv, registerCurrency)}`, 'success');
+            renderCurrencyTabs();
+            updateDashboard();
+            updateRatesDisplay();
+        }
+
+        // ==================== RATES CONFIG ====================
+        function openRatesConfig() {
+            document.getElementById('rateUSD100Input').value = rates.USD['100'];
+            document.getElementById('rateUSDSencInput').value = rates.USD.sencillo;
+            document.getElementById('rateEUR100Input').value = rates.EUR['100'];
+            document.getElementById('rateEURSencInput').value = rates.EUR.sencillo;
+            document.getElementById('rateVESInput').value = rates.VES.rate;
+            openModal('modalRates');
+        }
+
+        function saveRates() {
+            const u100 = parseFloat(document.getElementById('rateUSD100Input').value);
+            const uS = parseFloat(document.getElementById('rateUSDSencInput').value);
+            const e100 = parseFloat(document.getElementById('rateEUR100Input').value);
+            const eS = parseFloat(document.getElementById('rateEURSencInput').value);
+            const v = parseFloat(document.getElementById('rateVESInput').value);
+            if (!u100 || !uS || !e100 || !eS || !v) { showToast('Completa todas las tasas', 'warning'); return; }
+            rates.USD['100'] = u100;
+            rates.USD.sencillo = uS;
+            rates.EUR['100'] = e100;
+            rates.EUR.sencillo = eS;
+            rates.VES.rate = v;
+            saveData();
+            closeModal('modalRates');
+            updateRatesDisplay();
+            showToast('Tasas actualizadas', 'success');
+        }
+
+        // ==================== EDIT ====================
+        function openEdit(id) {
+            editingOpId = id;
+            const op = operations.find(o => o.id == id);
+            if (!op) return;
+            const curr = getCurrency(op.divisa);
+            document.getElementById('editCurrencyFlag').textContent = curr.flag;
+            document.getElementById('editCurrencyCode').textContent = curr.name;
+            let billText = '';
+            if (op.divisa === 'VES') billText = 'Bss';
+            else billText = op.tipoBillete === '100' ? 'Billete 100' : 'Sencillo';
+            document.getElementById('editBillType').textContent = billText;
+            const typeLabel = document.getElementById('editTypeLabel');
+            if (op.tipo === 'compra') {
+                typeLabel.textContent = 'COMPRA';
+                typeLabel.className = 'w-full py-3 px-4 rounded-xl bg-buy-light border-2 border-buy/20 font-bold text-buy-dark text-center text-sm';
+            } else {
+                typeLabel.textContent = 'VENTA';
+                typeLabel.className = 'w-full py-3 px-4 rounded-xl bg-sell-light border-2 border-sell/20 font-bold text-sell-dark text-center text-sm';
+            }
+            document.getElementById('editPrice').value = op.precio;
+            document.getElementById('editAmount').value = op.montoPesos;
+            document.getElementById('editEquivCurrency').textContent = op.divisa;
+            const obsSection = document.getElementById('editObservationSection');
+            if (op.divisa === 'VES') {
+                obsSection.classList.remove('hidden');
+                document.getElementById('editObservation').value = op.observacion || '';
+            } else {
+                obsSection.classList.add('hidden');
+            }
+            calculateEditEquivalent();
+            openModal('modalEdit');
+        }
+
+        function calculateEditEquivalent() {
+            const price = parseFloat(document.getElementById('editPrice').value) || 0;
+            const amount = parseFloat(document.getElementById('editAmount').value) || 0;
+            const op = operations.find(o => o.id == editingOpId);
+            const code = op ? op.divisa : 'USD';
+            if (price > 0 && amount > 0) {
+                const equiv = calcularEquivalente(amount, price);
+                document.getElementById('editEquivalent').innerHTML = `${parseFloat(equiv).toLocaleString('es-CL',{minimumFractionDigits:2,maximumFractionDigits:2})} <span id="editEquivCurrency">${code}</span>`;
+            } else {
+                document.getElementById('editEquivalent').innerHTML = `0.00 <span id="editEquivCurrency">${code}</span>`;
+            }
+        }
+
+        function saveEdit() {
+            const op = operations.find(o => o.id == editingOpId);
+            if (!op) return;
+            const price = parseFloat(document.getElementById('editPrice').value);
+            const amount = parseFloat(document.getElementById('editAmount').value);
+            if (!price || price <= 0) { showToast('Tasa inválida', 'warning'); return; }
+            if (!amount || amount <= 0) { showToast('Monto inválido', 'warning'); return; }
+            op.precio = price;
+            op.montoPesos = amount;
+            op.equivalenteDivisa = calcularEquivalente(amount, price);
+            if (op.divisa === 'VES') op.observacion = document.getElementById('editObservation').value.trim();
+            saveData();
+            closeModal('modalEdit');
+            showToast('Operación actualizada', 'success');
+            if (currentScreen === 'dashboard') updateDashboard();
+            if (currentScreen === 'operations') renderOperations();
+            if (currentScreen === 'dayDetail') renderDayDetail();
+            if (currentScreen === 'debts') renderDebts();
+        }
+
+        // ==================== DELETE ====================
+        function openDelete(id) { deletingOpId = id; openModal('modalDelete'); }
+        function confirmDelete() {
+            operations = operations.filter(o => o.id != deletingOpId);
+            saveData();
+            closeModal('modalDelete');
+            showToast('Operación eliminada', 'success');
+            if (currentScreen === 'dashboard') updateDashboard();
+            if (currentScreen === 'operations') renderOperations();
+            if (currentScreen === 'dayDetail') renderDayDetail();
+            if (currentScreen === 'debts') renderDebts();
+        }
+
+        // ==================== ANALYTICS ====================
+        function renderAnalytics() {
+            const todayStr = getTodayStr();
+            const content = document.getElementById('analyticsContent');
+            const allOps = operations.filter(op => op.fecha === todayStr);
+            const currencies = [...new Set(allOps.map(o => o.divisa))];
+
+            if (currencies.length === 0) {
+                content.innerHTML = `
+                    <div class="text-center py-16">
+                        <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-chart-pie text-slate-300 text-2xl"></i>
+                        </div>
+                        <p class="text-slate-400 font-medium">Sin datos hoy</p>
+                        <p class="text-slate-300 text-sm mt-1">Registra operaciones para ver analíticas</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            currencies.forEach(code => {
+                const curr = getCurrency(code);
+                const ops = allOps.filter(o => o.divisa === code);
+                const buys = ops.filter(o => o.tipo === 'compra');
+                const sells = ops.filter(o => o.tipo === 'venta');
+                const tBP = buys.reduce((s,o)=>s+o.montoPesos,0);
+                const tBD = buys.reduce((s,o)=>s+o.equivalenteDivisa,0);
+                const tSP = sells.reduce((s,o)=>s+o.montoPesos,0);
+                const tSD = sells.reduce((s,o)=>s+o.equivalenteDivisa,0);
+                const avgBuy = buys.length > 0 ? tBP / tBD : 0;
+                const avgSell = sells.length > 0 ? tSP / tSD : 0;
+                const minDivisa = Math.min(tBD, tSD);
+                const profit = (avgSell - avgBuy) * minDivisa;
+
+                html += `
+                    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                        <div class="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                            <span class="text-lg">${curr.flag}</span>
+                            <span class="font-bold text-slate-900">${curr.name}</span>
+                            <span class="text-xs text-slate-400 ml-auto">${ops.length} operaciones</span>
+                        </div>
+                        <div class="p-4 space-y-3">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="p-3 rounded-xl bg-buy-light/50">
+                                    <p class="text-[10px] font-semibold text-buy-dark uppercase mb-1">Compras</p>
+                                    <p class="text-sm font-bold text-slate-900">${formatPesos(tBP)}</p>
+                                    <p class="text-[10px] text-slate-500 mt-0.5">${buys.length} ops · ${formatDivisa(tBD, code)}</p>
+                                </div>
+                                <div class="p-3 rounded-xl bg-sell-light/50">
+                                    <p class="text-[10px] font-semibold text-sell-dark uppercase mb-1">Ventas</p>
+                                    <p class="text-sm font-bold text-slate-900">${formatPesos(tSP)}</p>
+                                    <p class="text-[10px] text-slate-500 mt-0.5">${sells.length} ops · ${formatDivisa(tSD, code)}</p>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div class="text-center p-2 rounded-lg bg-slate-50">
+                                    <p class="text-[9px] font-semibold text-slate-400 uppercase">Prom. Compra</p>
+                                    <p class="text-xs font-bold text-buy-dark mt-0.5">${buys.length > 0 ? formatPrice(avgBuy) : '—'}</p>
+                                </div>
+                                <div class="text-center p-2 rounded-lg bg-slate-50">
+                                    <p class="text-[9px] font-semibold text-slate-400 uppercase">Prom. Venta</p>
+                                    <p class="text-xs font-bold text-sell-dark mt-0.5">${sells.length > 0 ? formatPrice(avgSell) : '—'}</p>
+                                </div>
+                                <div class="text-center p-2 rounded-lg bg-primary-50">
+                                    <p class="text-[9px] font-semibold text-primary-500 uppercase">Utilidad</p>
+                                    <p class="text-xs font-bold text-primary-800 mt-0.5">${profit > 0 ? formatPesos(profit) : '$0'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            content.innerHTML = html;
+        }
+
+        // ==================== DEBTS ====================
+        function setDebtFilter(f) {
+            debtFilter = f;
+            document.getElementById('debtFilterPending').className = f === 'pending' ? 'flex-1 py-2.5 rounded-xl bg-primary-600 text-white text-xs font-bold' : 'flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold';
+            document.getElementById('debtFilterPaid').className = f === 'paid' ? 'flex-1 py-2.5 rounded-xl bg-primary-600 text-white text-xs font-bold' : 'flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold';
+            renderDebts();
+        }
+
+        function renderDebts() {
+            const debts = operations.filter(op => op.divisa === 'VES' && op.observacion && op.observacion.trim() !== '');
+            const filtered = debts.filter(op => debtFilter === 'pending' ? !op.pagada : op.pagada);
+            const list = document.getElementById('debtsList');
+            const empty = document.getElementById('emptyDebts');
+            const emptyText = document.getElementById('emptyDebtsText');
+
+            if (filtered.length === 0) {
+                list.innerHTML = '';
+                empty.classList.remove('hidden');
+                emptyText.textContent = debtFilter === 'pending' ? 'No hay deudas pendientes' : 'No hay deudas pagadas';
+                return;
+            }
+            empty.classList.add('hidden');
+
+            const grouped = {};
+            filtered.forEach(op => {
+                const key = op.observacion;
+                if (!grouped[key]) grouped[key] = { name: extractName(key), obs: key, ops: [], total: 0 };
+                grouped[key].ops.push(op);
+                grouped[key].total += op.montoPesos;
+            });
+
+            list.innerHTML = Object.values(grouped).sort((a,b) => b.total - a.total).map(g => {
+                const lastOp = g.ops[g.ops.length - 1];
+                const d = new Date(lastOp.fecha + 'T12:00:00');
+                const dateStr = `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`;
+                const isPaid = debtFilter === 'paid';
+                return `
+                    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden ${isPaid ? 'opacity-70' : ''}">
+                        <div class="p-4">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-11 h-11 rounded-xl ${isPaid ? 'bg-slate-100' : 'bg-amber-50'} flex items-center justify-center">
+                                        <i class="fas ${isPaid ? 'fa-check' : 'fa-user'} ${isPaid ? 'text-slate-400' : 'text-amber-600'} text-sm"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-slate-900">${g.name}</p>
+                                        <p class="text-xs text-slate-400 mt-0.5">${dateStr} · ${g.ops.length} operación(es)</p>
+                                    </div>
+                                </div>
+                                <p class="text-lg font-bold text-slate-900">${formatPesos(g.total)}</p>
+                            </div>
+                            <div class="p-2.5 rounded-lg bg-slate-50 mb-3">
+                                <p class="text-xs text-slate-600 italic">"${g.obs}"</p>
+                            </div>
+                            <button onclick="openDebtAction('${g.ops[0].id}', '${g.obs.replace(/'/g, "\\'")}')" class="btn-primary w-full py-2.5 rounded-xl ${isPaid ? 'bg-slate-100 text-slate-600' : 'bg-primary-50 text-primary-700'} font-bold text-xs">
+                                ${isPaid ? 'Ver detalles' : 'Gestionar deuda'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function extractName(obs) {
+            const match = obs.match(/(?:debe|debe\s+)?([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+)?)/i);
+            if (match && match[1]) {
+                const name = match[1].trim();
+                if (name.toLowerCase() !== 'debe' && name.length > 1) {
+                    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+                }
+            }
+            return obs.length > 20 ? obs.substring(0, 20) + '...' : obs;
+        }
+
+        function openDebtAction(opId, obs) {
+            const op = operations.find(o => o.id == opId);
+            if (!op) return;
+            const relatedOps = operations.filter(o => o.divisa === 'VES' && o.observacion === obs);
+            const total = relatedOps.reduce((s,o) => s + o.montoPesos, 0);
+            activeDebtId = opId;
+            document.getElementById('debtActionName').textContent = extractName(obs);
+            document.getElementById('debtActionAmount').textContent = `${formatPesos(total)} · ${relatedOps.length} operación(es)`;
+            const toggleBtn = document.getElementById('debtActionToggleBtn');
+            const allPaid = relatedOps.every(o => o.pagada);
+            if (allPaid) {
+                toggleBtn.textContent = 'Marcar como pendiente';
+                toggleBtn.className = 'btn-primary w-full py-4 rounded-2xl bg-slate-600 text-white font-bold text-base';
+            } else {
+                toggleBtn.textContent = 'Marcar como pagada';
+                toggleBtn.className = 'btn-primary w-full py-4 rounded-2xl bg-primary-600 text-white font-bold text-base';
+            }
+            openModal('modalDebtAction');
+        }
+
+        function toggleDebtPaid() {
+            const op = operations.find(o => o.id == activeDebtId);
+            if (!op) return;
+            const obs = op.observacion;
+            const relatedOps = operations.filter(o => o.divisa === 'VES' && o.observacion === obs);
+            const allPaid = relatedOps.every(o => o.pagada);
+            relatedOps.forEach(o => o.pagada = !allPaid);
+            saveData();
+            closeModal('modalDebtAction');
+            showToast(allPaid ? 'Marcada como pendiente' : 'Marcada como pagada', 'success');
+            renderDebts();
+        }
+
+        function editDebt() {
+            const op = operations.find(o => o.id == activeDebtId);
+            if (!op) return;
+            const newObs = prompt('Nueva observación:', op.observacion);
+            if (newObs === null) return;
+            const trimmed = newObs.trim();
+            if (!trimmed) { showToast('Observación vacía', 'warning'); return; }
+            const oldObs = op.observacion;
+            operations.filter(o => o.divisa === 'VES' && o.observacion === oldObs).forEach(o => o.observacion = trimmed);
+            saveData();
+            closeModal('modalDebtAction');
+            showToast('Deuda actualizada', 'success');
+            renderDebts();
+        }
+
+        function deleteDebt() {
+            if (!confirm('¿Eliminar todas las operaciones asociadas a esta deuda?')) return;
+            const op = operations.find(o => o.id == activeDebtId);
+            if (!op) return;
+            const obs = op.observacion;
+            operations = operations.filter(o => !(o.divisa === 'VES' && o.observacion === obs));
+            saveData();
+            closeModal('modalDebtAction');
+            showToast('Deuda eliminada', 'success');
+            renderDebts();
+        }
+
+        // ==================== HISTORY ====================
+        function renderHistory() {
+            document.getElementById('historyMonthTitle').textContent = `${MONTHS[historyMonth]} ${historyYear}`;
+            const datesWithOps = {};
+            operations.forEach(op => {
+                const d = new Date(op.fecha + 'T12:00:00');
+                if (d.getMonth() === historyMonth && d.getFullYear() === historyYear) {
+                    if (!datesWithOps[op.fecha]) datesWithOps[op.fecha] = [];
+                    datesWithOps[op.fecha].push(op);
+                }
+            });
+            const daysInMonth = new Date(historyYear, historyMonth + 1, 0).getDate();
+            const today = new Date();
+            let dates = [];
+            for (let d = daysInMonth; d >= 1; d--) {
+                const date = new Date(historyYear, historyMonth, d);
+                if (date > today) continue;
+                const key = formatDateKey(date);
+                const dayName = DAYS_SHORT[date.getDay()];
+                const hasOps = datesWithOps[key] && datesWithOps[key].length > 0;
+                const opCount = hasOps ? datesWithOps[key].length : 0;
+                dates.push({ key, day: d, dayName, hasOps, opCount });
+            }
+            const container = document.getElementById('historyDates');
+            if (dates.length === 0) {
+                container.innerHTML = `<div class="text-center py-12"><p class="text-slate-400 font-medium">No hay días disponibles</p></div>`;
+                return;
+            }
+            container.innerHTML = dates.map(d => `
+                <button onclick="openDayDetail('${d.key}')" class="date-item w-full py-4 px-4 rounded-2xl bg-white border border-slate-200 flex items-center justify-between text-left ${d.hasOps ? '' : 'opacity-50'}">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl ${d.hasOps ? 'bg-primary-50' : 'bg-slate-50'} flex flex-col items-center justify-center">
+                            <span class="text-lg font-bold ${d.hasOps ? 'text-primary-700' : 'text-slate-400'}">${d.day}</span>
+                        </div>
+                        <div>
+                            <p class="font-bold text-slate-900 text-sm">${d.dayName} ${d.day} ${MONTHS_SHORT[historyMonth]}</p>
+                            <p class="text-xs text-slate-400">${d.hasOps ? d.opCount + ' operaciones' : 'Sin operaciones'}</p>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-right text-slate-300 text-sm"></i>
+                </button>
+            `).join('');
+        }
+
+        function historyPrevMonth() { historyMonth--; if (historyMonth < 0) { historyMonth = 11; historyYear--; } renderHistory(); }
+        function historyNextMonth() {
+            const now = new Date();
+            if (historyYear === now.getFullYear() && historyMonth === now.getMonth()) return;
+            historyMonth++; if (historyMonth > 11) { historyMonth = 0; historyYear++; }
+            renderHistory();
+        }
+
+        // ==================== DAY DETAIL ====================
+        function openDayDetail(dateKey) {
+            selectedHistoryDate = dateKey;
+            const dayOps = operations.filter(op => op.fecha === dateKey);
+            const currencies = [...new Set(dayOps.map(op => op.divisa))];
+            dayDetailCurrency = currencies.length > 0 ? currencies[0] : 'USD';
+            showScreen('dayDetail');
+        }
+
+        function renderDayDetail() {
+            if (!selectedHistoryDate) return;
+            const d = new Date(selectedHistoryDate + 'T12:00:00');
+            document.getElementById('dayDetailTitle').textContent = `${DAYS_SHORT[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+            const dayOps = operations.filter(op => op.fecha === selectedHistoryDate);
+            const currencies = [...new Set(dayOps.map(op => op.divisa))];
+            document.getElementById('dayCurrencyTabs').innerHTML = currencies.map(code => {
+                const curr = getCurrency(code);
+                return `<button onclick="selectDayCurrency('${code}')" class="currency-pill flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap ${dayDetailCurrency === code ? 'active' : 'bg-white border border-slate-200 text-slate-600'}"><span class="text-sm">${curr.flag}</span> ${curr.name}</button>`;
+            }).join('');
+
+            const content = document.getElementById('dayDetailContent');
+            const currencyOps = dayOps.filter(op => op.divisa === dayDetailCurrency);
+            const buys = currencyOps.filter(op => op.tipo === 'compra');
+            const sells = currencyOps.filter(op => op.tipo === 'venta');
+            const tBP = buys.reduce((s,o)=>s+o.montoPesos,0);
+            const tBD = buys.reduce((s,o)=>s+o.equivalenteDivisa,0);
+            const tSP = sells.reduce((s,o)=>s+o.montoPesos,0);
+            const tSD = sells.reduce((s,o)=>s+o.equivalenteDivisa,0);
+            const avgBuy = buys.length > 0 ? tBP / tBD : 0;
+            const avgSell = sells.length > 0 ? tSP / tSD : 0;
+            const minDivisa = Math.min(tBD, tSD);
+            const profit = (avgSell - avgBuy) * minDivisa;
+
+            let html = `
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="stat-card">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-6 h-6 rounded-md bg-buy-light flex items-center justify-center"><i class="fas fa-arrow-down text-buy text-[10px]"></i></div>
+                            <span class="text-[10px] font-semibold text-slate-500 uppercase">Compras</span>
+                        </div>
+                        <p class="text-lg font-bold text-slate-900">${buys.length}</p>
+                        <p class="text-xs text-slate-500 mt-1">${formatPesos(tBP)}</p>
+                        <p class="text-[10px] text-slate-400">${formatDivisa(tBD, dayDetailCurrency)}</p>
+                    </div>
+                    <div class="stat-card">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-6 h-6 rounded-md bg-sell-light flex items-center justify-center"><i class="fas fa-arrow-up text-sell text-[10px]"></i></div>
+                            <span class="text-[10px] font-semibold text-slate-500 uppercase">Ventas</span>
+                        </div>
+                        <p class="text-lg font-bold text-slate-900">${sells.length}</p>
+                        <p class="text-xs text-slate-500 mt-1">${formatPesos(tSP)}</p>
+                        <p class="text-[10px] text-slate-400">${formatDivisa(tSD, dayDetailCurrency)}</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="stat-card text-center">
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase mb-1">Prom. Compra</p>
+                        <p class="text-sm font-bold text-buy-dark">${buys.length > 0 ? formatPrice(avgBuy) : '—'}</p>
+                    </div>
+                    <div class="stat-card text-center">
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase mb-1">Prom. Venta</p>
+                        <p class="text-sm font-bold text-sell-dark">${sells.length > 0 ? formatPrice(avgSell) : '—'}</p>
+                    </div>
+                    <div class="stat-card text-center bg-primary-50 border-primary-200">
+                        <p class="text-[10px] font-semibold text-primary-500 uppercase mb-1">Utilidad</p>
+                        <p class="text-sm font-bold text-primary-800">${profit > 0 ? formatPesos(profit) : '$0'}</p>
+                    </div>
+                </div>
+                <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide pt-2">Operaciones</h3>
+            `;
+            const sorted = [...currencyOps].sort((a,b) => b.hora.localeCompare(a.hora));
+            if (sorted.length === 0) {
+                html += `<div class="text-center py-8"><p class="text-slate-400 text-sm">Sin operaciones</p></div>`;
+            } else {
+                html += sorted.map(op => renderOperationCard(op)).join('');
+            }
+            content.innerHTML = html;
+        }
+
+        function selectDayCurrency(code) { dayDetailCurrency = code; renderDayDetail(); }
+
+        // ==================== EXPORT ====================
+        function exportExcel() {
+            const todayStr = getTodayStr();
+            const todayOps = operations.filter(op => op.fecha === todayStr);
+            if (todayOps.length === 0) { showToast('No hay operaciones para exportar', 'warning'); return; }
+            const now = new Date();
+            const fileName = `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}.xlsx`;
+            const sorted = [...todayOps].sort((a,b) => a.hora.localeCompare(b.hora));
+            const data = sorted.map(op => {
+                let billType = '';
+                if (op.divisa === 'VES') billType = 'Único';
+                else billType = op.tipoBillete === '100' ? 'Billete 100' : 'Sencillo';
+                return {
+                    'Hora': op.hora,
+                    'Divisa': op.divisa,
+                    'Tipo Billete': billType,
+                    'Tipo': op.tipo === 'compra' ? 'COMPRA' : 'VENTA',
+                    'Tasa': op.precio,
+                    'Monto Pesos CLP': op.montoPesos,
+                    'Equivalente Divisa': op.equivalenteDivisa,
+                    'Observación': op.observacion || ''
+                };
+            });
+            const currencies = [...new Set(todayOps.map(o => o.divisa))];
+            data.push({});
+            data.push({ 'Hora': '--- RESUMEN ---' });
+            currencies.forEach(code => {
+                const ops = todayOps.filter(o => o.divisa === code);
+                const buys = ops.filter(o => o.tipo === 'compra');
+                const sells = ops.filter(o => o.tipo === 'venta');
+                const tBP = buys.reduce((s,o)=>s+o.montoPesos,0);
+                const tBD = buys.reduce((s,o)=>s+o.equivalenteDivisa,0);
+                const tSP = sells.reduce((s,o)=>s+o.montoPesos,0);
+                const tSD = sells.reduce((s,o)=>s+o.equivalenteDivisa,0);
+                const avgBuy = buys.length > 0 ? tBP / tBD : 0;
+                const avgSell = sells.length > 0 ? tSP / tSD : 0;
+                const minDivisa = Math.min(tBD, tSD);
+                const profit = (avgSell - avgBuy) * minDivisa;
+                data.push({});
+                data.push({ 'Hora': code, 'Divisa': getCurrency(code).name });
+                data.push({ 'Hora': 'Compras', 'Divisa': buys.length.toString(), 'Tipo': formatPesos(tBP), 'Tasa': formatDivisa(tBD, code) });
+                data.push({ 'Hora': 'Ventas', 'Divisa': sells.length.toString(), 'Tipo': formatPesos(tSP), 'Tasa': formatDivisa(tSD, code) });
+                data.push({ 'Hora': 'Prom. Compra', 'Tasa': avgBuy.toFixed(3) });
+                data.push({ 'Hora': 'Prom. Venta', 'Tasa': avgSell.toFixed(3) });
+                data.push({ 'Hora': 'Utilidad', 'Tipo': formatPesos(profit > 0 ? profit : 0) });
+            });
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Operaciones');
+            ws['!cols'] = [{wch:10},{wch:10},{wch:14},{wch:10},{wch:12},{wch:16},{wch:16},{wch:25}];
+            XLSX.writeFile(wb, fileName);
+            showToast(`Archivo "${fileName}" exportado`, 'success');
+        }
+
+        // ==================== MODALS ====================
+        function openModal(id) { document.getElementById(id).classList.add('active'); document.getElementById(id).classList.remove('closing'); document.body.style.overflow = 'hidden'; }
+        function closeModal(id) {
+            const m = document.getElementById(id);
+            m.classList.add('closing');
+            setTimeout(() => { m.classList.remove('active','closing'); document.body.style.overflow = ''; }, 250);
+        }
+        function closeModalOutside(e, id) { if (e.target === e.currentTarget) closeModal(id); }
+        function showMoreMenu() { openModal('modalMore'); }
+
+        // ==================== TOAST ====================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const colors = { success:'bg-buy text-white', warning:'bg-amber-500 text-white', error:'bg-red-500 text-white', info:'bg-primary-600 text-white' };
+            const icons = { success:'fa-check-circle', warning:'fa-exclamation-circle', error:'fa-times-circle', info:'fa-info-circle' };
+            toast.className = `toast ${colors[type]} px-5 py-3 rounded-2xl shadow-lg flex items-center gap-3 mb-2 text-sm font-medium`;
+            toast.innerHTML = `<i class="fas ${icons[type]}"></i> ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3000);
+        }
+
+        // ==================== INIT ====================
+        loadData();
+        updateHeaderDate();
+        renderCurrencyTabs();
+        updateDashboard();
+        updateRatesDisplay();
+    </script>
+</body>
+</html>
